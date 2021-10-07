@@ -290,6 +290,7 @@ static u8 R8S_MULTI_CMD_DISABLE[] = { 0x72, 0x2C, 0x01 };
 static u8 R8S_MULTI_CMD_DUMMY[] = { 0x0A, 0x00 };
 
 static u8 R8S_TE_ON[] = { 0x35, 0x00, 0x00 };
+static u8 R8S_TE_OFFSET[] = { 0xB9, 0x01, 0x09, 0x58, 0x00, 0x0B};
 
 static DEFINE_STATIC_PACKET(r8s_level1_key_enable, DSI_PKT_TYPE_WR, R8S_KEY1_ENABLE, 0);
 static DEFINE_STATIC_PACKET(r8s_level2_key_enable, DSI_PKT_TYPE_WR, R8S_KEY2_ENABLE, 0);
@@ -308,6 +309,7 @@ static DEFINE_STATIC_PACKET(r8s_sleep_in, DSI_PKT_TYPE_WR, R8S_SLEEP_IN, 0);
 static DEFINE_STATIC_PACKET(r8s_display_on, DSI_PKT_TYPE_WR, R8S_DISPLAY_ON, 0);
 static DEFINE_STATIC_PACKET(r8s_display_off, DSI_PKT_TYPE_WR, R8S_DISPLAY_OFF, 0);
 
+static DEFINE_STATIC_PACKET(r8s_te_offset, DSI_PKT_TYPE_WR, R8S_TE_OFFSET, 0);
 static DEFINE_STATIC_PACKET(r8s_te_on, DSI_PKT_TYPE_WR, R8S_TE_ON, 0);
 
 static u8 R8S_TSET_SET[] = {
@@ -626,6 +628,7 @@ static void *r8s_init_cmdtbl[] = {
 	&PKTINFO(r8s_dsc),
 	&PKTINFO(r8s_pps),
 
+	&PKTINFO(r8s_te_offset),
 	&PKTINFO(r8s_te_on),
 
 	&PKTINFO(r8s_caset),
