@@ -93,7 +93,12 @@ __attribute__((unused)) static int load_fw_utc_vector(struct npu_session *sess, 
 		ret = -EINVAL;
 		goto err_exit;
 	}
-	copy_from_user(vector_path, (__user void *)param->addr, param->size);
+	ret = copy_from_user(vector_path, (__user void *)param->addr, param->size);
+	if (ret) {
+		npu_err("copy_from_user failed(%d)\n", ret);
+		ret = -EFAULT;
+		goto err_exit;
+	}
 	vector_path[param->size] = '\0';
 	npu_dbg("Loading FW test vector from : %s\n", vector_path);
 
@@ -200,9 +205,9 @@ static int execute_fw_utc_vector(struct npu_session *sess, struct vs4l_param *pa
 	/* Setting QoS to make the NPU at operation clock */
 	system = container_of(ft_handle, struct npu_system, npu_fw_test_handler);
 	BUG_ON(!system);
-	ret = npu_qos_start(system);
+	ret = npu_qos_open(system);
 	if (ret) {
-		npu_uerr("npu_qos_start failed : (%d)\n", sess, ret);
+		npu_uerr("npu_qos_open failed : (%d)\n", sess, ret);
 		test_result = NPU_ERR_DRIVER(NPU_ERR_INVALID_STATE);
 		goto err_exit;
 	}
@@ -249,9 +254,9 @@ static int execute_fw_utc_vector(struct npu_session *sess, struct vs4l_param *pa
 	}
 
 qos_off:
-	ret = npu_qos_stop(system);
+	ret = npu_qos_close(system);
 	if (ret) {
-		npu_uerr("npu_qos_stop failed : (%d)\n", sess, ret);
+		npu_uerr("npu_qos_close failed : (%d)\n", sess, ret);
 		test_result = NPU_ERR_DRIVER(NPU_ERR_INVALID_STATE);
 		goto err_exit;
 	}

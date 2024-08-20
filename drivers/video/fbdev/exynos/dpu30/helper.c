@@ -208,6 +208,12 @@ void dpu_unify_rect(struct decon_rect *r1, struct decon_rect *r2,
 	dst->right = max(r1->right, r2->right);
 }
 
+bool is_decon_rect_empty(struct decon_rect *r)
+{
+	return (r->left == 0) && (r->top == 0) &&
+		(r->right == 0) && (r->bottom == 0);
+}
+
 void decon_to_psr_info(struct decon_device *decon, struct decon_mode_info *psr)
 {
 	psr->psr_mode = decon->dt.psr_mode;
@@ -409,6 +415,10 @@ void dpu_dump_afbc_info(void)
 				continue;
 
 			v_addr[j] = dma_buf_vmap(afbc_info->dma_buf[j]);
+			if (IS_ERR_OR_NULL(v_addr[j])) {
+				decon_err("%s: Failed to get v_addr (err %pK)\n", __func__, v_addr[j]);
+				return;
+			}
 			size[j] = afbc_info->dma_buf[j]->size;
 			decon_info("\t[DMA%d] Base(0x%p), KV(0x%p), size(%d)\n",
 					j, (void *)afbc_info->dma_addr[j],
@@ -423,6 +433,10 @@ void dpu_dump_afbc_info(void)
 				continue;
 
 			v_addr[j] = dma_buf_vmap(afbc_info->dma_buf[j]);
+			if (IS_ERR_OR_NULL(v_addr[j])) {
+				decon_err("%s: Failed to get v_addr (err %pK)\n", __func__, v_addr[j]);
+				return;
+			}
 			size[j] = afbc_info->dma_buf[j]->size;
 			decon_info("\t[DMA%d] Base(0x%p), KV(0x%p), size(%d)\n",
 					j, (void *)afbc_info->dma_addr[j],

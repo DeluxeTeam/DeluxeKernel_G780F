@@ -56,7 +56,7 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 #define V4L2_MPEG_VIDEO_MPEG4_LEVEL_6			8
 
 /* new entry for enum v4l2_mpeg_video_h264_level */
-#define V4L2_MPEG_VIDEO_H264_LEVEL_5_2			16
+#define V4L2_MPEG_VIDEO_H264_LEVEL_6_0			17
 
 /* new entry for enum v4l2_mpeg_video_header_mode */
 #define V4L2_MPEG_VIDEO_HEADER_MODE_AT_THE_READY	2
@@ -136,6 +136,8 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 					(V4L2_CID_MPEG_MFC_BASE + 27)
 #define V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_2BIT_CHROMA	\
 					(V4L2_CID_MPEG_MFC_BASE + 28)
+#define V4L2_CID_MPEG_VIDEO_PRIORITY			\
+					(V4L2_CID_MPEG_MFC_BASE + 36)
 
 #define V4L2_CID_MPEG_VIDEO_CHROMA_QP_OFFSET_CB		\
 					(V4L2_CID_MPEG_MFC_BASE + 38)

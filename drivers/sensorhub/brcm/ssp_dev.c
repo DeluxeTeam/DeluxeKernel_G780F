@@ -741,9 +741,9 @@ void ssp_motor_work_func(struct work_struct *work)
 #ifdef CONFIG_VIB_NOTIFIER
 static int vib_notifier_callback(struct notifier_block *self, unsigned long event, void *data){
 	ssp_data_info->motor_state = 1;
-
-	queue_work(ssp_data_info->ssp_motor_wq,
-			&ssp_data_info->work_ssp_motor);
+	
+	if (ssp_data_info->ssp_motor_wq != NULL)
+		queue_work(ssp_data_info->ssp_motor_wq, &ssp_data_info->work_ssp_motor);
 
 	pr_info("[SSP] %s : Motor state %d\n", __func__, ssp_data_info->motor_state );
 
@@ -1202,18 +1202,9 @@ static void ssp_shutdown(struct spi_device *spi)
 
 	disable_debug_timer(data);
 
-	/*
-	 *hoi
-	 *if (SUCCESS != ssp_send_cmd(data, MSG2SSP_AP_STATUS_SHUTDOWN, 0))
-	 *        pr_err("[SSP]: %s MSG2SSP_AP_STATUS_SHUTDOWN failed\n",
-	 *                __func__);
-	 */
-/*
- *#if defined (CONFIG_SENSORS_SSP_VLTE)
- *        // hall_ic unregister
- *        hall_ic_unregister_notify(&data->hall_ic_nb);
- *#endif
- */
+#ifdef CONFIG_PANEL_NOTIFY
+	panel_notifier_unregister(&panel_notif);
+#endif
 	mutex_lock(&data->ssp_enable_mutex);
 	ssp_enable(data, false);
 	clean_pending_list(data);

@@ -1311,6 +1311,42 @@ static void dwc3_prepare_one_trb_linear(struct dwc3_ep *dep,
 	}
 }
 
+static int dwc3_dump_request(struct dwc3_request *req)
+{
+	pr_info("%s: start to dump dwc3_request!\n", __func__);
+	pr_info("list->next: 0x%016llx, list->prev: 0x%016llx\n",
+		(unsigned long long)req->list.next, (unsigned long long)req->list.prev);
+	if (req->sg)
+		pr_info("sg: 0x%016llx\n", (unsigned long long)req->sg);
+	if (req->start_sg)
+		pr_info("start_sg: 0x%016llx\n", (unsigned long long)req->start_sg);
+	pr_info("num_pending_sgs: 0x%08x, num_queued_sgs: 0x%08x remaining: 0x%08x\n",
+		req->num_pending_sgs, req->num_queued_sgs, req->remaining);
+	pr_info("epnum: 0x%08x\n", req->epnum);
+	if (req->trb)
+		pr_info("req->trb: 0x%016llx\n", (unsigned long long)req->trb);
+	pr_info("trb_dma: 0x%016llx\n", (unsigned long long)req->trb_dma);
+	pr_info("num_trbs: 0x%08x\n", req->num_trbs);
+	pr_info("needs_extra_trb: 0x%08x\n", req->needs_extra_trb);
+
+	pr_info("%s: start to dump usb_request!\n", __func__);
+	pr_info("buf: 0x%016llx\n", (unsigned long long)req->request.buf);
+	pr_info("length: 0x%08x\n", req->request.length);
+	pr_info("dma: 0x%016llx\n", (unsigned long long)req->request.dma);
+	if (req->request.sg)
+		pr_info("sg: 0x%016llx\n", (unsigned long long)req->request.sg);
+	pr_info("num_sgs: 0x%08x\n", req->request.num_sgs);
+	pr_info("num_mapped_sgs: 0x%08x\n", req->request.num_mapped_sgs);
+	pr_info("stream_id: 0x%08x\n", req->request.stream_id);
+	pr_info("list->next: 0x%016llx, list->prev:0x%016llx\n",
+		(unsigned long long)req->request.list.next,
+		(unsigned long long)req->request.list.prev);
+	pr_info("status: %d\n", req->request.status);
+	pr_info("actual: 0x%08x\n", req->request.actual);
+
+	dump_stack();
+	return 0;
+}
 /*
  * dwc3_prepare_trbs - setup TRBs from requests
  * @dep: endpoint for which requests are being prepared
@@ -1336,8 +1372,10 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep)
 	 * break things.
 	 */
 	list_for_each_entry(req, &dep->started_list, list) {
-		if (req->num_pending_sgs > 0)
+		if (req->num_pending_sgs > 0) {
+			dwc3_dump_request(req);
 			dwc3_prepare_one_trb_sg(dep, req);
+		}
 
 		if (!dwc3_calc_trbs_left(dep))
 			return;
@@ -1357,9 +1395,10 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep)
 		req->num_queued_sgs	= 0;
 		req->num_pending_sgs	= req->request.num_mapped_sgs;
 
-		if (req->num_pending_sgs > 0)
+		if (req->num_pending_sgs > 0) {
+			dwc3_dump_request(req);
 			dwc3_prepare_one_trb_sg(dep, req);
-		else
+		} else
 			dwc3_prepare_one_trb_linear(dep, req);
 
 		if (!dwc3_calc_trbs_left(dep))
@@ -1595,6 +1634,7 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 	}
 
 out1:
+	dwc3_gadget_ep_skip_trbs(dep, req);
 	dwc3_gadget_giveback(dep, req, -ECONNRESET);
 
 out0:
@@ -2242,9 +2282,6 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	if(is_on)
 		set_usb_enable_state();
 #endif
-	if (pm_runtime_suspended(dwc->dev))
-		return 0;
-
 	is_on = !!is_on;
 
 	spin_lock_irqsave(&dwc->lock, flags);
@@ -2265,24 +2302,6 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 		/* Need to wait for vbus_session(on) from otg driver */
 		return 0;
 	}
-
-#ifdef CONFIG_USB_FIX_PHY_PULLUP_ISSUE
-	/* This W/A patch made for Lhotse H/W bugs.(Need to remove) */
-	if (is_on) {
-#ifdef CONFIG_USB_FIX_PHY_PULLUP_ISSUE
-		/* This W/A patch made for Lhotse H/W bugs.(Need to remove) */
-		/**
-		 * In case there is not a resistance to detect VBUS,
-		 * DP/DM controls by S/W are needed at this point.
-		 */
-		if (dwc->is_not_vbus_pad) {
-			phy_set(dwc->usb2_generic_phy, SET_DPPULLUP_DISABLE, NULL);
-			phy_set(dwc->usb3_generic_phy, SET_DPPULLUP_DISABLE, NULL);
-		}
-#endif
-		dwc->max_cnt_link_info = DWC3_LINK_STATE_INFO_LIMIT;
-	}
-#endif
 
 	if (dwc->is_not_vbus_pad) {
 		if (is_on) {
@@ -2443,7 +2462,10 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	unsigned long		flags;
 	int			ret = 0;
 	int			irq;
+	struct dwc3_otg *dotg = dwc->dotg;
+	struct otg_fsm	*fsm = &dotg->fsm;
 
+	mutex_lock(&fsm->lock);
 	irq = dwc->irq_gadget;
 #if IS_ENABLED(DWC3_GADGET_IRQ_ORG)
 	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
@@ -2477,6 +2499,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	 */
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	mutex_unlock(&fsm->lock);
 
 #ifdef CONFIG_ARGOS
 	if (!zalloc_cpumask_var(&affinity_cpu_mask, GFP_KERNEL))
@@ -2495,6 +2518,7 @@ err1:
 	free_irq(irq, dwc);
 
 err0:
+	mutex_unlock(&fsm->lock);
 	return ret;
 }
 
@@ -2509,7 +2533,10 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
+	struct dwc3_otg *dotg = dwc->dotg;
+	struct otg_fsm  *fsm = &dotg->fsm;
 
+	mutex_lock(&fsm->lock);
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	if (pm_runtime_suspended(dwc->dev))
@@ -2520,6 +2547,7 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 out:
 	dwc->gadget_driver	= NULL;
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	mutex_unlock(&fsm->lock);
 
 	free_irq(dwc->irq_gadget, dwc->ev_buf);
 

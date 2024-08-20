@@ -1040,6 +1040,8 @@ static int __mfc_enc_ext_info(struct mfc_ctx *ctx)
 	val |= ENC_SET_RATIO_OF_INTRA;
 	val |= ENC_SET_DROP_CONTROL;
 	val |= ENC_SET_CHROMA_QP_CONTROL;
+	val |= ENC_SET_OPERATING_FPS;
+	val |= ENC_SET_PRIORITY;
 
 	if (MFC_FEATURE_SUPPORT(dev, dev->pdata->color_aspect_enc))
 		val |= ENC_SET_COLOR_ASPECT;
@@ -1131,6 +1133,9 @@ static int __mfc_enc_get_ctrl_val(struct mfc_ctx *ctx, struct v4l2_control *ctrl
 	case V4L2_CID_MPEG_VIDEO_BPG_HEADER_SIZE:
 		ctrl->value = enc->header_size;
 		break;
+	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE:
+		ctrl->value = mfc_qos_get_framerate(ctx);
+		break;
 	default:
 		mfc_err_ctx("Invalid control: 0x%08x\n", ctrl->id);
 		ret = -EINVAL;
@@ -1157,7 +1162,7 @@ static int mfc_enc_g_ctrl(struct file *file, void *priv,
 
 static inline int __mfc_enc_h264_level(enum v4l2_mpeg_video_h264_level lvl)
 {
-	static unsigned int t[V4L2_MPEG_VIDEO_H264_LEVEL_5_2 + 1] = {
+	static unsigned int t[V4L2_MPEG_VIDEO_H264_LEVEL_6_0 + 1] = {
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1_0   */ 10,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1B    */ 9,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1_1   */ 11,
@@ -1175,6 +1180,7 @@ static inline int __mfc_enc_h264_level(enum v4l2_mpeg_video_h264_level lvl)
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_5_0   */ 50,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_5_1   */ 51,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_5_2   */ 52,
+		/* V4L2_MPEG_VIDEO_H264_LEVEL_6_0   */ 60,
 	};
 	return t[lvl];
 }
@@ -1260,6 +1266,11 @@ static int __mfc_enc_set_param(struct mfc_ctx *ctx, struct v4l2_control *ctrl)
 	int ret = 0;
 
 	switch (ctrl->id) {
+	case V4L2_CID_MPEG_VIDEO_PRIORITY:
+		ctx->prio = ctrl->value;
+		mfc_update_real_time(ctx);
+		mfc_debug(2, "[PRIO] user set priority: %d\n", ctrl->value);
+		break;
 	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
 		p->gop_size = ctrl->value;
 		break;
@@ -1976,6 +1987,11 @@ static int __mfc_enc_set_param(struct mfc_ctx *ctx, struct v4l2_control *ctrl)
 					enc->sh_handle_hdr.fd,
 					enc->sh_handle_hdr.vaddr);
 		}
+		break;
+	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE:
+		ctx->operating_framerate = ctrl->value;
+		mfc_update_real_time(ctx);
+		mfc_debug(2, "[QoS] user set the operating frame rate: %d\n", ctrl->value);
 		break;
 	default:
 		mfc_err_ctx("Invalid control: 0x%08x\n", ctrl->id);
